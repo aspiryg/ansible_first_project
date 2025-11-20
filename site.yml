@@ -27,6 +27,22 @@
         state: latest
       when: ansible_distribution == "Ubuntu"
 
+    - name: ensure apache is started and enabled (Ubuntu)
+      copy:
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Welcome to Apache Server</title>
+          </head>
+          <body>
+              <h1>Welcome to Apache Server</h1>
+              <p>This is my first custom web page served by Apache.</p>
+          </body>
+          </html>
+        dest: /var/www/html/index.html
+      when: ansible_distribution == "Ubuntu"
+
 - hosts: db_servers
   become: true
   tasks:
@@ -35,9 +51,37 @@
       apt:
         name: mariadb-server
         state: latest
+        update_cache: yes
       when: ansible_distribution == "Ubuntu"
 
-- hosts: file_servers
+    - name: ensure mariadb is started and enabled
+      tags: db,mariadb,ubuntu
+      service:
+        name: mariadb
+        state: started
+        enabled: yes
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Install Python MySQL support for Ansible (Ubuntu)
+      tags: db,mariadb,ubuntu,python
+      apt:
+        name: python3-pymysql
+        state: latest
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Create applciation DB user with privileges
+      tags: db,mariadb,ubuntu,python
+      community.mysql.mysql_user:
+        name: "{{ db_app_user }}"
+        password: "{{ db_app_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        host: "%"
+        state: present
+        login_user: root
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      when: ansible_distribution == "Ubuntu"
+
+- hosts: workers
   become: true
   tasks:
     - name: install samba package
